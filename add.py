@@ -1,4 +1,5 @@
 
+
 import requests
 from bs4 import BeautifulSoup
 import time
@@ -9,6 +10,7 @@ import signal
 # --- Configuration ---
 EMAIL = "imodumicheal519@gmail.com"
 PASSWORD = "Aliumicheal23."
+
 MAGIC_RECAPTCHA_TOKEN = "09ANMylNCxCsR-EALV_dP3Uu9rxSkQG-0xTH4zhiW(AwivWepExAlRqCrvuEUPLATuySMYLrpy9fmeab6yOPTYLcHu8ryQ2sf3mkJCsRhoVj6IOkQDcIdLm49TAGADj_M6K"
 
 # --- API Endpoints ---
@@ -19,14 +21,17 @@ TEST_NUMBERS_API_URL = f"{BASE_URL}/portal/numbers/test"
 ADD_NUMBER_API_URL = f"{BASE_URL}/portal/numbers/termination/number/add"
 
 def graceful_shutdown(signum, frame):
+    """Handles Ctrl+C for a clean exit."""
     print("\n\n[!] Shutdown signal detected. Exiting.")
     sys.exit(0)
 
-def add_number_range(session, range_name):
-  
-    print(f"\n--- Attempting to add a number from range: '{range_name}' ---")
+def add_number_range(session, range_name_input):
+    """
+    The core workflow with a new verification step to ensure precision.
+    """
+    print(f"\n--- Attempting to add a number from range: '{range_name_input}' ---")
     try:
-       
+        # Step 1: Get a fresh CSRF token.
         page_response = session.get(TEST_NUMBERS_PAGE_URL)
         page_response.raise_for_status()
         soup = BeautifulSoup(page_response.text, 'html.parser')
@@ -36,7 +41,7 @@ def add_number_range(session, range_name):
         csrf_token = token_tag['content']
         print(f"[+] Acquired fresh CSRF Token.")
 
-        
+        # Step 2: Search for the range using the full, correct parameters.
         params = {
             'draw': '1', 'columns[0][data]': 'range', 'columns[1][data]': 'test_number',
             'columns[2][data]': 'term', 'columns[3][data]': 'P2P', 'columns[4][data]': 'A2P',
@@ -46,7 +51,7 @@ def add_number_range(session, range_name):
             'columns[11][data]': 'limit_cli_did_p2p', 'columns[12][data]': 'updated_at',
             'columns[13][data]': 'action', 'columns[13][searchable]': 'false', 'columns[13][orderable]': 'false',
             'order[0][column]': '1', 'order[0][dir]': 'asc', 'start': '0', 'length': '50',
-            'search[value]': range_name, '_': int(time.time() * 1000),
+            'search[value]': range_name_input, '_': int(time.time() * 1000),
         }
         search_headers = {
             'Accept': 'application/json, text/javascript, */*; q=0.01',
@@ -58,20 +63,30 @@ def add_number_range(session, range_name):
         search_data = search_response.json()
 
         if not search_data.get('data'):
-            print(f"[!] Search failed. No numbers found for range '{range_name}'. It might be unavailable.")
+            print(f"[!] Search failed. No numbers found for range '{range_name_input}'.")
             return False
 
-        
-        first_result = search_data['data'][0]
-        termination_id = first_result.get('id')
-        number_to_add = first_result.get('test_number')
+        # --- NEW: Step 2.5: Verify the result ---
+        correct_target = None
+        for result in search_data['data']:
+            # Perform a case-insensitive check to find the exact range match
+            if result.get('range', '').lower() == range_name_input.lower():
+                correct_target = result
+                break # Found the first correct match, stop searching
+
+        if not correct_target:
+            print(f"[!] Verification failed. The server returned numbers, but none exactly matched the range '{range_name_input}'.")
+            return False
+
+        termination_id = correct_target.get('id')
+        number_to_add = correct_target.get('test_number')
 
         if not termination_id or not number_to_add:
-            print(f"[!] Could not extract 'id' or 'test_number' from search results for '{range_name}'.")
+            print(f"[!] Could not extract 'id' or 'test_number' from verified result for '{range_name_input}'.")
             return False
-        print(f"[+] Found Target. ID: {termination_id}, Number: {number_to_add}")
+        print(f"[+] Target Verified. ID: {termination_id}, Number: {number_to_add}")
 
-        
+        # Step 3: Attempt to add the verified number.
         print(f"--- Sending 'Add' request for {number_to_add} ---")
         add_payload = {'_token': csrf_token, 'id': termination_id}
         add_headers = search_headers.copy()
@@ -82,7 +97,7 @@ def add_number_range(session, range_name):
         add_data = add_response.json()
 
         if "done" in add_data.get("message", "").lower():
-            print(f"\n[SUCCESS] Server confirmed '{number_to_add}' from range '{range_name}' has been added.")
+            print(f"\n[SUCCESS] Server confirmed '{number_to_add}' from range '{range_name_input}' has been added.")
             return True
         else:
             error_message = add_data.get("message", "Unknown error from server.")
@@ -94,11 +109,11 @@ def add_number_range(session, range_name):
         return False
 
 def main():
-    
+    """Main function to handle login and the interactive adding process."""
     signal.signal(signal.SIGINT, graceful_shutdown)
 
     print("="*60)
-    print("--- IsraelDev Number Adder ---")
+    print("--- Israel's Simple Number Adder (v1.2) ---")
     print("="*60)
 
     if "PASTE_YOUR_NEW_FRESH_TOKEN_HERE" in MAGIC_RECAPTCHA_TOKEN:
@@ -123,7 +138,6 @@ def main():
             if "login" not in login_response.url and "Logout" in login_response.text:
                 print("[SUCCESS] Authentication complete!")
                 
-                # --- Interactive Loop ---
                 while True:
                     range_to_add = input("\nEnter the number range you want to add (or type 'exit' to quit): ").strip()
                     if range_to_add.lower() == 'exit':
@@ -144,3 +158,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
