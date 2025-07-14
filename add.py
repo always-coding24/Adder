@@ -8,9 +8,9 @@ import sys
 import signal
 
 # --- Configuration ---
-EMAIL = "imodumicheal519@gmail.com"
-PASSWORD = "Aliumicheal23."
-
+EMAIL = "ayomideomosanya676@gmail.com"
+PASSWORD = "305604Umr@"
+ 
 MAGIC_RECAPTCHA_TOKEN = "09ANMylNCxCsR-EALV_dP3Uu9rxSkQG-0xTH4zhiW(AwivWepExAlRqCrvuEUPLATuySMYLrpy9fmeab6yOPTYLcHu8ryQ2sf3mkJCsRhoVj6IOkQDcIdLm49TAGADj_M6K"
 
 # --- API Endpoints ---
@@ -113,7 +113,7 @@ def main():
     signal.signal(signal.SIGINT, graceful_shutdown)
 
     print("="*60)
-    print("--- Israel's Simple Number Adder (v1.2) ---")
+    print("--- Israel dev Number Adder ---")
     print("="*60)
 
     if "PASTE_YOUR_NEW_FRESH_TOKEN_HERE" in MAGIC_RECAPTCHA_TOKEN:
