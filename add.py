@@ -9,7 +9,7 @@ import signal
 
 # --- Configuration ---
 EMAIL = "Oluokuns305@gmail.com"
-PASSWORD = "fuck123$"
+PASSWORD = "Oluo123$"
  
 MAGIC_RECAPTCHA_TOKEN = "09ANMylNCxCsR-EALV_dP3Uu9rxSkQG-0xTH4zhiW(AwivWepExAlRqCrvuEUPLATuySMYLrpy9fmeab6yOPTYLcHu8ryQ2sf3mkJCsRhoVj6IOkQDcIdLm49TAGADj_M6K"
 
