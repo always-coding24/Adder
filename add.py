@@ -1,4 +1,10 @@
-
+# =================================================================================
+# --- Israel's Simple Number Adder (One-Input) ---
+# ===============================================================================
+# Description: The definitive, one-input adder. This bot only asks for the
+#              phone number. It automatically finds all other necessary
+#              details and adds the precise number using Israel's proven logic.
+# =================================================================================
 
 import requests
 from bs4 import BeautifulSoup
@@ -10,7 +16,10 @@ import signal
 # --- Configuration ---
 EMAIL = "Oluokuns305@gmail.com"
 PASSWORD = "Oluo123$"
- 
+# IMPORTANT: This token is critical and expires. You must get a fresh one
+# by logging into ivasms.com in a browser, opening developer tools (F12),
+# going to the Network tab, attempting a login, finding the 'login' request,
+# and copying the 'g-recaptcha-response' value from the form data.
 MAGIC_RECAPTCHA_TOKEN = "09ANMylNCxCsR-EALV_dP3Uu9rxSkQG-0xTH4zhiW(AwivWepExAlRqCrvuEUPLATuySMYLrpy9fmeab6yOPTYLcHu8ryQ2sf3mkJCsRhoVj6IOkQDcIdLm49TAGADj_M6K"
 
 # --- API Endpoints ---
@@ -25,13 +34,13 @@ def graceful_shutdown(signum, frame):
     print("\n\n[!] Shutdown signal detected. Exiting.")
     sys.exit(0)
 
-def add_number_range(session, range_name_input):
+def add_specific_number(session, phone_number):
     """
-    The core workflow with a new verification step to ensure precision.
+    The core workflow to add a precise phone number with only one input.
     """
-    print(f"\n--- Attempting to add a number from range: '{range_name_input}' ---")
+    print(f"\n--- Initiating acquisition for: {phone_number} ---")
     try:
-        # Step 1: Get a fresh CSRF token.
+        # Step 1: Get a fresh CSRF token from the test numbers page.
         page_response = session.get(TEST_NUMBERS_PAGE_URL)
         page_response.raise_for_status()
         soup = BeautifulSoup(page_response.text, 'html.parser')
@@ -41,7 +50,7 @@ def add_number_range(session, range_name_input):
         csrf_token = token_tag['content']
         print(f"[+] Acquired fresh CSRF Token.")
 
-        # Step 2: Search for the range using the full, correct parameters.
+        # Step 2: Search for the EXACT phone number to get its details.
         params = {
             'draw': '1', 'columns[0][data]': 'range', 'columns[1][data]': 'test_number',
             'columns[2][data]': 'term', 'columns[3][data]': 'P2P', 'columns[4][data]': 'A2P',
@@ -51,7 +60,7 @@ def add_number_range(session, range_name_input):
             'columns[11][data]': 'limit_cli_did_p2p', 'columns[12][data]': 'updated_at',
             'columns[13][data]': 'action', 'columns[13][searchable]': 'false', 'columns[13][orderable]': 'false',
             'order[0][column]': '1', 'order[0][dir]': 'asc', 'start': '0', 'length': '50',
-            'search[value]': range_name_input, '_': int(time.time() * 1000),
+            'search[value]': phone_number, '_': int(time.time() * 1000),
         }
         search_headers = {
             'Accept': 'application/json, text/javascript, */*; q=0.01',
@@ -63,31 +72,22 @@ def add_number_range(session, range_name_input):
         search_data = search_response.json()
 
         if not search_data.get('data'):
-            print(f"[!] Search failed. No numbers found for range '{range_name_input}'.")
+            print(f"[!] Search failed. The number {phone_number} was not found. It might be unavailable.")
             return False
 
-        # --- NEW: Step 2.5: Verify the result ---
-        correct_target = None
-        for result in search_data['data']:
-            # Perform a case-insensitive check to find the exact range match
-            if result.get('range', '').lower() == range_name_input.lower():
-                correct_target = result
-                break # Found the first correct match, stop searching
+        # Automatically extract all needed info from the first result.
+        first_result = search_data['data'][0]
+        termination_id = first_result.get('id')
+        actual_range_name = first_result.get('range')
 
-        if not correct_target:
-            print(f"[!] Verification failed. The server returned numbers, but none exactly matched the range '{range_name_input}'.")
+        if not termination_id:
+            print(f"[!] Could not extract 'id' for {phone_number} from search results.")
             return False
+        
+        print(f"[+] Target Verified. ID: {termination_id}, Number: {phone_number}, Range: {actual_range_name}")
 
-        termination_id = correct_target.get('id')
-        number_to_add = correct_target.get('test_number')
-
-        if not termination_id or not number_to_add:
-            print(f"[!] Could not extract 'id' or 'test_number' from verified result for '{range_name_input}'.")
-            return False
-        print(f"[+] Target Verified. ID: {termination_id}, Number: {number_to_add}")
-
-        # Step 3: Attempt to add the verified number.
-        print(f"--- Sending 'Add' request for {number_to_add} ---")
+        # Step 3: Attempt to add the number using its found ID.
+        print(f"--- Sending 'Add' request for {phone_number} ---")
         add_payload = {'_token': csrf_token, 'id': termination_id}
         add_headers = search_headers.copy()
         add_headers['Content-Type'] = 'application/x-www-form-urlencoded; charset=UTF-8'
@@ -97,7 +97,7 @@ def add_number_range(session, range_name_input):
         add_data = add_response.json()
 
         if "done" in add_data.get("message", "").lower():
-            print(f"\n[SUCCESS] Server confirmed '{number_to_add}' from range '{range_name_input}' has been added.")
+            print(f"\n[SUCCESS] Server confirmed '{phone_number}' from range '{actual_range_name}' has been added.")
             return True
         else:
             error_message = add_data.get("message", "Unknown error from server.")
@@ -113,7 +113,7 @@ def main():
     signal.signal(signal.SIGINT, graceful_shutdown)
 
     print("="*60)
-    print("--- Israel dev Number Adder ---")
+    print("--- Israel's Simple Number Adder ---")
     print("="*60)
 
     if "PASTE_YOUR_NEW_FRESH_TOKEN_HERE" in MAGIC_RECAPTCHA_TOKEN:
@@ -138,15 +138,16 @@ def main():
             if "login" not in login_response.url and "Logout" in login_response.text:
                 print("[SUCCESS] Authentication complete!")
                 
+                # --- Interactive Loop ---
                 while True:
-                    range_to_add = input("\nEnter the number range you want to add (or type 'exit' to quit): ").strip()
-                    if range_to_add.lower() == 'exit':
+                    phone_to_add = input("\nEnter the phone number to add (or type 'exit' to quit): ").strip()
+                    if phone_to_add.lower() == 'exit':
                         break
-                    if not range_to_add:
-                        print("[!] Range name cannot be empty.")
+                    if not phone_to_add.isdigit():
+                        print("[!] Invalid input. Phone number should only contain digits.")
                         continue
                     
-                    add_number_range(session, range_to_add)
+                    add_specific_number(session, phone_to_add)
 
             else:
                 print("\n[!!!] AUTHENTICATION FAILED. Check token/credentials.")
